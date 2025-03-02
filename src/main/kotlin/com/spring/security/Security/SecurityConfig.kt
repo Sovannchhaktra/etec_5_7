@@ -4,42 +4,28 @@ import com.spring.security.utils.Constant
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpStatus
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
-import org.springframework.security.core.userdetails.User
-import org.springframework.security.core.userdetails.UserDetails
-import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
-import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
 @Configuration
-class SecurityConfig {
-
-    @Bean
-    fun userDetailsService(): UserDetailsService {
-        val user1: UserDetails = User.withUsername("user1")
-            .password(passwordEncoder().encode("123"))
-            .roles("USER")
-            .build()
-
-        val user2: UserDetails = User.withUsername("admin")
-            .password(passwordEncoder().encode("12345"))
-            .roles("ADMIN")
-            .build()
-
-        return InMemoryUserDetailsManager(user1, user2)
-    }
+class SecurityConfig(
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val userDetailsService: UserDetailsService
+) {
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .authorizeHttpRequests { req ->
                 req
-                    .requestMatchers(Constant.BASE_URL+ "/home"+ Constant.BASE_LIST)
-                    .hasAnyRole("USER", "ADMIN")
-                    .anyRequest()
+                    .requestMatchers("${Constant.BASE_URL}/users/**")
+                    .permitAll()
+                    . anyRequest()
                     .authenticated()
             }
             .httpBasic { httpBasic ->
@@ -49,9 +35,18 @@ class SecurityConfig {
             }
             .csrf { it.disable() }
             .sessionManagement { sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .formLogin { it.disable() }
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build();
+    }
+
+    @Bean
+    fun authenticationProvider(): DaoAuthenticationProvider {
+        val authProvider = DaoAuthenticationProvider()
+        authProvider.setUserDetailsService(userDetailsService)
+        authProvider.setPasswordEncoder(passwordEncoder())
+        return authProvider
     }
 
     @Bean

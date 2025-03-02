@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController
 class HomeController {
     @GetMapping(Constant.BASE_LIST)
     fun home(): String {
+        println(1)
         return "Home"
     }
 }
